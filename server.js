@@ -70,6 +70,8 @@ const getAllInfo = (db) => {
 
         await countApiUsers(db);
 
+        await countControlPpks(db);
+
         
         await sleep(10000);
         db.close();
@@ -102,5 +104,19 @@ const countApiUsers = (db) => {
 
         const apiUsers = await collection.find({}).count();
         console.log(`Total API users: ${apiUsers}`);
+    });
+};
+
+// cound Dunay Control ppks
+const countControlPpks = (db) => {
+    db.collection('Lite2Activity', async (err, collection) => {
+        if(err) {
+            console.log(err);
+            db.close();
+            await sleep(10000);
+        };
+
+        const controlPpks = await collection.distinct('ppk_num');
+        console.log(`Total ppks which were used with Dunay Control recently: ${controlPpks.length}`);
     });
 };
