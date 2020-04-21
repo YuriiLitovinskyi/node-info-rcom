@@ -3,6 +3,7 @@ const mongoVersion = require('mongo-version');
 
 const url = 'mongodb://localhost:27017/DBClientsPPK';
 
+
 (() => {
     MongoClient.connect(url, async (err, db) => {
         if(err){
@@ -10,17 +11,14 @@ const url = 'mongodb://localhost:27017/DBClientsPPK';
             console.log(err);
             await sleep(10000);
         } else {
-            console.log('Connected to database successfully!\n\n');   
-            console.log('Total info');
+            console.log('Connected to database successfully!\n\n');  
+            console.log('Total info\n');
+            await mongoVersion(db,  (err, version) => {
+                console.log(`MongoDB Version: \t ${version}`);   
+            }); 
+            
 
-            //const version = db.version;
-            //console.table()
-            //console.log(`MongoDB Version: \t ${version}` );
-
-            getAllInfo(db);
-
-
-           
+            getAllInfo(db);           
             
         }
     });    
@@ -39,41 +37,64 @@ const getAllInfo = (db) => {
             console.log(err);
             db.close();
             await sleep(10000);
-        };
-
-        await mongoVersion(db,  (err, version) => {
-            console.log(`MongoDB Version: \t ${version}`);
-        });
+        };     
+       
 
         const allPpk = await collection.find({}).count();
-        console.log(`Total ppks in database: \t\t ${allPpk}`);
+        //console.log(`Total ppks in database: \t\t ${allPpk}`);    
+        
 
         const onlinePpk = await collection.find({ lastActivity: {$gt: (Date.now() - 4 * 60 * 1000) }}).count();
-        console.log(`Ppks online: \t\t ${onlinePpk}`);
+        //console.log(`Ppks online: \t\t ${onlinePpk}`);  
+        
 
         const offlinePpk = await collection.find({ lastActivity: {$lt: (Date.now() - 4 * 60 * 1000) }}).count();
-        console.log(`Ppks offline: \t\t ${offlinePpk}`);
+        //console.log(`Ppks offline: \t\t ${offlinePpk}`);
+
 
         const enabled = await collection.find({ enabled: true }).count(); 
-        console.log(`Total ppks enabled: \t\t ${enabled}`);
+        //console.log(`Total ppks enabled: \t\t ${enabled}`);
+      
 
         const disabled = await collection.find({ enabled: false }).count(); 
-        console.log(`Total ppks disabled: \t\t ${disabled}`);
+        //console.log(`Total ppks disabled: \t\t ${disabled}`);
+    
 
         const dunay4L = await collection.find({ model: '4l' }).count(); 
-        console.log(`Total Dunay 4L: \t\t ${dunay4L}`);
+        //console.log(`Total Dunay 4L: \t\t ${dunay4L}`);
+    
 
         const dunay8LG1R = await collection.find({ model: '8l' }).count(); 
-        console.log(`Total Dunay 8L and G1R: \t\t ${dunay8LG1R}`);
+        //console.log(`Total Dunay 8L and G1R: \t\t ${dunay8LG1R}`);
+     
 
-        await countScenarious(db);
+        const scenar = await countScenarious(db);
+    
 
-        await countApiUsers(db);
+        const apiUsers = await countApiUsers(db);
+      
 
-        await countControlPpks(db);
+        const controlPpks = await countControlPpks(db);
+  
+    
+        await sleep(500);      
 
-        
-        await sleep(10000);
+
+        console.table([          
+            ['Total ppks in database', allPpk],
+            ['Ppks online', onlinePpk],
+            ['Ppks offline', offlinePpk],
+            ['Total ppks enabled', enabled],
+            ['Total ppks disabled', disabled],
+            ['Total Dunay 4L', dunay4L],
+            ['Total Dunay 8L and G1R', dunay8LG1R],
+            ['Total ppks with scenarious', scenar],
+            ['Total API users', apiUsers],
+            ['Total Dunay Control ppks for last 24 hours', controlPpks]
+        ]);
+
+
+        await sleep(30000);
         db.close();
         //callback();
     });
@@ -90,11 +111,15 @@ const countScenarious = (db) => {
 
         const scenar = await collection.find({}).count();
         console.log(`Total ppks with scenarious: ${scenar}`);
-    });
+     
+        
+
+        return scenar;
+    });    
 };
 
 // cound api users
-const countApiUsers = (db) => {
+const countApiUsers = async (db) => {
     db.collection('apiUsers', async (err, collection) => {
         if(err) {
             console.log(err);
@@ -104,7 +129,10 @@ const countApiUsers = (db) => {
 
         const apiUsers = await collection.find({}).count();
         console.log(`Total API users: ${apiUsers}`);
-    });
+      
+
+        return apiUsers;
+    });   
 };
 
 // cound Dunay Control ppks
@@ -116,7 +144,21 @@ const countControlPpks = (db) => {
             await sleep(10000);
         };
 
-        const controlPpks = await collection.distinct('ppk_num');
-        console.log(`Total ppks which were used with Dunay Control recently: ${controlPpks.length}`);
+
+        const controlPpks = await collection.find({ time: {$gt: (Date.now() - 60 * 60 * 24 * 1000) }}).toArray();
+        
+
+        const seen = new Set();
+
+        const filteredArr = controlPpks.filter(el => {
+            const duplicate = seen.has(el.ppk_num);
+            seen.add(el.ppk_num);
+            return !duplicate;
+          });
+
+          console.log(filteredArr);
+
+        console.log(`Total Dunay Control ppks for last 24 hours: ${filteredArr.length}`);
     });
 };
+
