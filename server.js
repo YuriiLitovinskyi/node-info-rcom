@@ -41,33 +41,24 @@ const getAllInfo = (db) => {
        
 
         const allPpk = await collection.find({}).count();
-        //console.log(`Total ppks in database: \t\t ${allPpk}`);    
-        
-
+         
         const onlinePpk = await collection.find({ lastActivity: {$gt: (Date.now() - 4 * 60 * 1000) }}).count();
-        //console.log(`Ppks online: \t\t ${onlinePpk}`);  
-        
-
+    
         const offlinePpk = await collection.find({ lastActivity: {$lt: (Date.now() - 4 * 60 * 1000) }}).count();
-        //console.log(`Ppks offline: \t\t ${offlinePpk}`);
-
-
+  
         const enabled = await collection.find({ enabled: true }).count(); 
-        //console.log(`Total ppks enabled: \t\t ${enabled}`);
-      
-
+    
         const disabled = await collection.find({ enabled: false }).count(); 
-        //console.log(`Total ppks disabled: \t\t ${disabled}`);
-    
-
+      
         const dunay4L = await collection.find({ model: '4l' }).count(); 
-        //console.log(`Total Dunay 4L: \t\t ${dunay4L}`);
-    
-
+        
         const dunay8LG1R = await collection.find({ model: '8l' }).count(); 
-        //console.log(`Total Dunay 8L and G1R: \t\t ${dunay8LG1R}`);
-     
+       
 
+        // Promise.all([countScenarious(db), countApiUsers(db), countControlPpks(db)]).then(function(values) {
+        //     console.log(values);
+        // });
+        
         const scenar = await countScenarious(db);
     
 
