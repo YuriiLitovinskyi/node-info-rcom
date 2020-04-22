@@ -3,6 +3,11 @@ const mongoVersion = require('mongo-version');
 
 const url = 'mongodb://localhost:27017/DBClientsPPK';
 
+function TableItem(property, value){
+    this.property = property;
+    this.value = value;
+};
+
 
 (() => {
     MongoClient.connect(url, async (err, db) => {
@@ -17,9 +22,9 @@ const url = 'mongodb://localhost:27017/DBClientsPPK';
                 console.log(`MongoDB Version: \t ${version}`);   
             }); 
             
-
-            getAllInfo(db);           
-            
+            getAllInfo(db, () => {
+                console.log('\nApplication will be closed automatically in 2 minutes...');
+            });             
         }
     });    
 })();
@@ -31,15 +36,14 @@ const sleep = (timeout) => {
     });
 };
 
-const getAllInfo = (db) => {
+const getAllInfo = (db, callback) => {
     db.collection('ppkState', async (err, collection) => {
         if(err) {
             console.log(err);
             db.close();
             await sleep(10000);
         };     
-       
-
+    
         const allPpk = await collection.find({}).count();
          
         const onlinePpk = await collection.find({ lastActivity: {$gt: (Date.now() - 4 * 60 * 1000) }}).count();
@@ -53,103 +57,72 @@ const getAllInfo = (db) => {
         const dunay4L = await collection.find({ model: '4l' }).count(); 
         
         const dunay8LG1R = await collection.find({ model: '8l' }).count(); 
-       
-
-        // Promise.all([countScenarious(db), countApiUsers(db), countControlPpks(db)]).then(function(values) {
-        //     console.log(values);
-        // });
-        
+              
         const scenar = await countScenarious(db);
     
-
         const apiUsers = await countApiUsers(db);
       
-
         const controlPpks = await countControlPpks(db);
   
-    
-        await sleep(500);      
+        await sleep(1000);      
 
 
-        console.table([          
-            ['Total ppks in database', allPpk],
-            ['Ppks online', onlinePpk],
-            ['Ppks offline', offlinePpk],
-            ['Total ppks enabled', enabled],
-            ['Total ppks disabled', disabled],
-            ['Total Dunay 4L', dunay4L],
-            ['Total Dunay 8L and G1R', dunay8LG1R],
-            ['Total ppks with scenarious', scenar],
-            ['Total API users', apiUsers],
-            ['Total Dunay Control ppks for last 24 hours', controlPpks]
+        const totalPpks = new TableItem('Total ppks in database', allPpk);
+        const totalPpksOnline = new TableItem('Ppks online', onlinePpk);
+        const totalPpksOffline = new TableItem('Ppks offline', offlinePpk);
+        const totalEnabled = new TableItem('Total ppks enabled', enabled);
+        const totalDisabled = new TableItem('Total ppks disabled', disabled);
+        const total4L = new TableItem('Total Dunay 4L', dunay4L);
+        const total8Lg1R = new TableItem('Total Dunay 8L and G1R', dunay8LG1R);
+        const totalScen = new TableItem('Total ppks with scenarious', scenar);
+        const totalApi = new TableItem('Total API users', apiUsers);
+        const totalControl = new TableItem('Total Dunay Control ppks for last 24 hours', controlPpks);
+
+        console.table([
+            totalPpks, 
+            totalPpksOnline,
+            totalPpksOffline,
+            totalEnabled,
+            totalDisabled,
+            total4L,
+            total8Lg1R,
+            totalScen,
+            totalApi,
+            totalControl
         ]);
 
-
-        await sleep(30000);
-        db.close();
-        //callback();
+        await sleep(1000);
+        callback();
+        db.close(); 
+        await sleep(120000);               
     });
 };
 
 // cound devices with scenarious
-const countScenarious = (db) => {
-    db.collection('scenarios', async (err, collection) => {
-        if(err) {
-            console.log(err);
-            db.close();
-            await sleep(10000);
-        };
-
-        const scenar = await collection.find({}).count();
-        console.log(`Total ppks with scenarious: ${scenar}`);
-     
-        
-
-        return scenar;
-    });    
+const countScenarious = async (db) => {
+    const scenar = await db.collection('scenarios').find({}).count();    
+    return scenar;    
 };
 
 // cound api users
 const countApiUsers = async (db) => {
-    db.collection('apiUsers', async (err, collection) => {
-        if(err) {
-            console.log(err);
-            db.close();
-            await sleep(10000);
-        };
-
-        const apiUsers = await collection.find({}).count();
-        console.log(`Total API users: ${apiUsers}`);
-      
-
-        return apiUsers;
-    });   
+    const apiUsers = await db.collection('apiUsers').find({}).count();      
+    return apiUsers;
 };
 
 // cound Dunay Control ppks
-const countControlPpks = (db) => {
-    db.collection('Lite2Activity', async (err, collection) => {
-        if(err) {
-            console.log(err);
-            db.close();
-            await sleep(10000);
-        };
-
-
-        const controlPpks = await collection.find({ time: {$gt: (Date.now() - 60 * 60 * 24 * 1000) }}).toArray();
+const countControlPpks = async (db) => {
+    // Find all devices which were managed for last 24 hours using Dunay Control
+    const controlPpks = await db.collection('Lite2Activity').find({ time: {$gt: (Date.now() - 60 * 60 * 24 * 1000) }}).toArray();
         
-
-        const seen = new Set();
-
-        const filteredArr = controlPpks.filter(el => {
-            const duplicate = seen.has(el.ppk_num);
-            seen.add(el.ppk_num);
-            return !duplicate;
-          });
-
-          console.log(filteredArr);
-
-        console.log(`Total Dunay Control ppks for last 24 hours: ${filteredArr.length}`);
-    });
+    // Remove duplicate numbers ppk from array
+    const seen = new Set();
+    const filteredArr = controlPpks.filter(el => {
+        const duplicate = seen.has(el.ppk_num);
+        seen.add(el.ppk_num);
+        return !duplicate;
+        });
+   
+    return filteredArr.length;
 };
 
